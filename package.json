@@ -5,18 +5,21 @@
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
-    "start": "expo start --lan",
-    "android": "expo start --android --lan",
-    "ios": "expo start --ios --lan",
-    "web": "expo start --web"
+    "start": "expo start -c --lan",
+    "start:tunnel": "expo start -c --tunnel",
+    "start:localhost": "expo start -c --localhost",
+    "android:usb": "expo start -c --localhost --android",
+    "android": "expo start -c --android --lan",
+    "ios": "expo start -c --ios --lan",
+    "web": "expo start -c --web"
   },
   "dependencies": {
     "expo": "54.0.33",
     "expo-status-bar": "~3.0.9",
     "react": "19.1.0",
     "react-native": "0.81.5",
-    "react-native-gesture-handler": "^2.30.1",
-    "react-native-reanimated": "^4.3.0"
+    "react-native-gesture-handler": "~2.28.0",
+    "react-native-reanimated": "~4.1.1"
   },
   "devDependencies": {
     "@types/react": "~19.1.10",

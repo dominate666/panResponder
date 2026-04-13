@@ -20,6 +20,8 @@ const INITIAL_RED_TOP_OFFSET_RATIO = 0.2;
 /** 向下拖动时，红色可视区域高度小于等于该阈值后禁止继续拖 */
 const MIN_VISIBLE_RED_HEIGHT_RPX = 100;
 const DRAG_EDGE_EPSILON = 0.5;
+/** 手势响应系数：>1 会减轻“阻尼感”，让拖拽更跟手 */
+const DRAG_RESPONSE_FACTOR = 1.2;
 
 function getStableWindowHeight(fallbackFromHook: number): number {
   if (fallbackFromHook > 0) return fallbackFromHook;
@@ -36,8 +38,7 @@ export default function App() {
   /** 根容器实测高度，与 Dimensions 对齐，避免底边与父布局不一致出现橙色条 */
   const [rootLayoutHeight, setRootLayoutHeight] = useState(0);
   const [debugVisibleRedHeightRpx, setDebugVisibleRedHeightRpx] = useState(0);
-  const debugRafRef = useRef<number | null>(null);
-  const debugPendingRpxRef = useRef(0);
+  const latestVisibleRedHeightRpxRef = useRef(0);
   const layoutHeight = rootLayoutHeight > 0 ? rootLayoutHeight : safeHeight;
 
   /** 进入页：红色层本身全屏，通过 translateY 下移到距顶部 20% */
@@ -76,6 +77,7 @@ export default function App() {
           )
         : 0;
     setDebugVisibleRedHeightRpx(initialVisibleHeightRpx);
+    latestVisibleRedHeightRpxRef.current = initialVisibleHeightRpx;
   }, [initialTopFromScreenTopPx, layoutHeight, translateY, windowWidth]);
 
   const panResponder = useMemo(
@@ -90,8 +92,9 @@ export default function App() {
           lastGestureDy.current = 0;
         },
         onPanResponderMove: (_, g) => {
-          const delta = g.dy - lastGestureDy.current;
+          const rawDelta = g.dy - lastGestureDy.current;
           lastGestureDy.current = g.dy;
+          const delta = rawDelta * DRAG_RESPONSE_FACTOR;
 
           const maxScroll = Math.max(0, contentHeightRef.current - viewportHeightRef.current);
           const atTopEdge = translateYRef.current <= minTranslateY + DRAG_EDGE_EPSILON;
@@ -124,13 +127,7 @@ export default function App() {
               windowWidth > 0
                 ? Math.max(0, Math.round((visibleHeightPx / windowWidth) * 750))
                 : 0;
-            debugPendingRpxRef.current = nextVisibleHeightRpx;
-            if (debugRafRef.current == null) {
-              debugRafRef.current = requestAnimationFrame(() => {
-                setDebugVisibleRedHeightRpx(debugPendingRpxRef.current);
-                debugRafRef.current = null;
-              });
-            }
+            latestVisibleRedHeightRpxRef.current = nextVisibleHeightRpx;
             return;
           }
 
@@ -145,19 +142,15 @@ export default function App() {
           const visibleHeightPx = layoutHeight - Math.max(0, nextTopPx);
           const nextVisibleHeightRpx =
             windowWidth > 0 ? Math.max(0, Math.round((visibleHeightPx / windowWidth) * 750)) : 0;
-          debugPendingRpxRef.current = nextVisibleHeightRpx;
-          if (debugRafRef.current == null) {
-            debugRafRef.current = requestAnimationFrame(() => {
-              setDebugVisibleRedHeightRpx(debugPendingRpxRef.current);
-              debugRafRef.current = null;
-            });
-          }
+          latestVisibleRedHeightRpxRef.current = nextVisibleHeightRpx;
         },
         onPanResponderRelease: () => {
           lastGestureDy.current = 0;
+          setDebugVisibleRedHeightRpx(latestVisibleRedHeightRpxRef.current);
         },
         onPanResponderTerminate: () => {
           lastGestureDy.current = 0;
+          setDebugVisibleRedHeightRpx(latestVisibleRedHeightRpxRef.current);
         },
       }),
     [translateY, maxTranslateY, minTranslateY],
