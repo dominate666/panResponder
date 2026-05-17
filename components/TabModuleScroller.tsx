@@ -1,9 +1,5 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
-  FlatList,
-  ListRenderItem,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,6 +7,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import PagerView from 'react-native-pager-view';
 
 type ModuleKey = '1' | '2';
 type TabKey = 'A' | 'B' | 'C';
@@ -31,9 +28,8 @@ const SECTION_TITLES: Record<TabKey, string> = {
 
 export default function TabModuleScroller() {
   const { width } = useWindowDimensions();
-  const [viewportWidth, setViewportWidth] = useState(width);
-  const bigModuleWidth = viewportWidth - 32;
-  const moduleListRef = useRef<FlatList<ModuleKey>>(null);
+  const bigModuleWidth = width - 32;
+  const pagerRef = useRef<PagerView>(null);
   const innerScrollRef = useRef<ScrollView>(null);
   const sectionOffsetsRef = useRef<Record<TabKey, number>>({
     A: 0,
@@ -63,121 +59,20 @@ export default function TabModuleScroller() {
 
   const scrollToModule = (module: ModuleKey) => {
     const index = MODULES.indexOf(module);
-    if (index < 0 || viewportWidth <= 0) {
+    if (index < 0) {
       return;
     }
 
-    moduleListRef.current?.scrollToIndex({ index, animated: true });
+    pagerRef.current?.setPage(index);
     setActiveModule(module);
   };
 
-  const snapAndSyncModule = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const pageWidth = event.nativeEvent.layoutMeasurement.width;
-    if (pageWidth <= 0) {
-      return;
-    }
-
-    const offsetX = event.nativeEvent.contentOffset.x;
-    const index = Math.round(offsetX / pageWidth);
-    const clampedIndex = Math.max(0, Math.min(index, MODULES.length - 1));
-
-    moduleListRef.current?.scrollToIndex({ index: clampedIndex, animated: true });
-    setActiveModule(MODULES[clampedIndex]);
-  };
-
-  const handleScrollEndDrag = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const velocityX = event.nativeEvent.velocity?.x ?? 0;
-    if (Math.abs(velocityX) < 0.05) {
-      snapAndSyncModule(event);
+  const handlePageSelected = (position: number) => {
+    const module = MODULES[position];
+    if (module) {
+      setActiveModule(module);
     }
   };
-
-  const handleModuleListLayout = useCallback((layoutWidth: number) => {
-    if (layoutWidth > 0) {
-      setViewportWidth(layoutWidth);
-    }
-  }, []);
-
-  const renderModulePage: ListRenderItem<ModuleKey> = useCallback(
-    ({ item }) => {
-      if (item === '1') {
-        return (
-          <View style={[styles.modulePage, { width: viewportWidth }]}>
-            <View
-              style={[
-                styles.bigModule,
-                styles.bigModuleFill,
-                { width: bigModuleWidth },
-                activeModule === '1' && styles.bigModuleActive,
-              ]}
-            >
-              <Text style={styles.bigModuleTitle}>模块一11111</Text>
-              <View style={styles.tabRow}>
-                {TABS.map((tab) => {
-                  const isActive = activeTab === tab;
-                  return (
-                    <TouchableOpacity
-                      key={tab}
-                      style={[styles.tabButton, isActive && styles.tabButtonActive]}
-                      activeOpacity={0.85}
-                      onPress={() => scrollToSection(tab)}
-                    >
-                      <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{tab}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              <ScrollView
-                ref={innerScrollRef}
-                style={styles.innerScrollView}
-                contentContainerStyle={[styles.scrollContent, { paddingBottom: 24 }]}
-                showsVerticalScrollIndicator={false}
-                nestedScrollEnabled
-              >
-                {sectionBlocks.map((section) => (
-                  <View
-                    key={section.key}
-                    style={styles.sectionCard}
-                    onLayout={(e) => {
-                      sectionOffsetsRef.current[section.key] = e.nativeEvent.layout.y;
-                    }}
-                  >
-                    <Text style={styles.sectionTitle}>{section.title}</Text>
-                    <Text style={styles.sectionDesc}>{section.desc}</Text>
-                    <View style={styles.placeholder}>
-                      <Text style={styles.placeholderText}>{section.title} 内容示例22</Text>
-                    </View>
-                  </View>
-                ))}
-              </ScrollView>
-            </View>
-          </View>
-        );
-      }
-
-      return (
-        <View style={[styles.modulePage, { width: viewportWidth }]}>
-          <View
-            style={[
-              styles.bigModule,
-              { width: bigModuleWidth },
-              activeModule === '2' && styles.bigModuleActive,
-            ]}
-          >
-            <Text style={styles.bigModuleTitle}>模块二</Text>
-            <Text style={styles.bigModuleDesc}>
-              这是第二个大模块，与模块一11同级，可放置其他业务内容。
-            </Text>
-            <View style={styles.placeholder}>
-              <Text style={styles.placeholderText}>模块二 内容示例</Text>
-            </View>
-          </View>
-        </View>
-      );
-    },
-    [activeModule, activeTab, bigModuleWidth, sectionBlocks, viewportWidth],
-  );
 
   return (
     <View style={styles.container}>
@@ -199,34 +94,84 @@ export default function TabModuleScroller() {
         })}
       </View>
 
-      <FlatList
-        ref={moduleListRef}
-        data={MODULES}
-        horizontal
-        pagingEnabled
-        bounces
-        alwaysBounceHorizontal
-        overScrollMode="always"
-        style={styles.outerScrollView}
-        showsHorizontalScrollIndicator={false}
-        nestedScrollEnabled
-        keyExtractor={(item) => item}
-        renderItem={renderModulePage}
-        getItemLayout={(_, index) => ({
-          length: viewportWidth,
-          offset: viewportWidth * index,
-          index,
-        })}
-        onLayout={(e) => handleModuleListLayout(e.nativeEvent.layout.width)}
-        onMomentumScrollEnd={snapAndSyncModule}
-        onScrollEndDrag={handleScrollEndDrag}
-        onScrollToIndexFailed={(info) => {
-          moduleListRef.current?.scrollToOffset({
-            offset: info.index * viewportWidth,
-            animated: true,
-          });
-        }}
-      />
+      <PagerView
+        ref={pagerRef}
+        style={styles.pager}
+        initialPage={0}
+        overdrag
+        onPageSelected={(e) => handlePageSelected(e.nativeEvent.position)}
+      >
+        <View key="module-1" style={styles.modulePage}>
+          <View
+            style={[
+              styles.bigModule,
+              styles.bigModuleFill,
+              { width: bigModuleWidth },
+              activeModule === '1' && styles.bigModuleActive,
+            ]}
+          >
+            <Text style={styles.bigModuleTitle}>模块一11111</Text>
+            <View style={styles.tabRow}>
+              {TABS.map((tab) => {
+                const isActive = activeTab === tab;
+                return (
+                  <TouchableOpacity
+                    key={tab}
+                    style={[styles.tabButton, isActive && styles.tabButtonActive]}
+                    activeOpacity={0.85}
+                    onPress={() => scrollToSection(tab)}
+                  >
+                    <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{tab}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <ScrollView
+              ref={innerScrollRef}
+              style={styles.innerScrollView}
+              contentContainerStyle={[styles.scrollContent, { paddingBottom: 24 }]}
+              showsVerticalScrollIndicator={false}
+              nestedScrollEnabled
+            >
+              {sectionBlocks.map((section) => (
+                <View
+                  key={section.key}
+                  style={styles.sectionCard}
+                  onLayout={(e) => {
+                    sectionOffsetsRef.current[section.key] = e.nativeEvent.layout.y;
+                  }}
+                >
+                  <Text style={styles.sectionTitle}>{section.title}</Text>
+                  <Text style={styles.sectionDesc}>{section.desc}</Text>
+                  <View style={styles.placeholder}>
+                    <Text style={styles.placeholderText}>{section.title} 内容示例22</Text>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+
+        <View key="module-2" style={styles.modulePage}>
+          <View
+            style={[
+              styles.bigModule,
+              styles.bigModuleFill,
+              { width: bigModuleWidth },
+              activeModule === '2' && styles.bigModuleActive,
+            ]}
+          >
+            <Text style={styles.bigModuleTitle}>模块二</Text>
+            <Text style={styles.bigModuleDesc}>
+              这是第二个大模块，与模块一11同级，可放置其他业务内容。
+            </Text>
+            <View style={styles.placeholder}>
+              <Text style={styles.placeholderText}>模块二 内容示例</Text>
+            </View>
+          </View>
+        </View>
+      </PagerView>
     </View>
   );
 }
@@ -263,12 +208,13 @@ const styles = StyleSheet.create({
   moduleTabTextActive: {
     color: '#ffffff',
   },
-  outerScrollView: {
+  pager: {
     flex: 1,
   },
   modulePage: {
     flex: 1,
     paddingBottom: 32,
+    alignItems: 'center',
   },
   bigModule: {
     borderRadius: 16,
@@ -277,7 +223,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: 'transparent',
-    alignSelf: 'center',
   },
   bigModuleFill: {
     flex: 1,
