@@ -30,7 +30,7 @@ const SECTION_TITLES: Record<TabKey, string> = {
 };
 
 export default function TabModuleScroller() {
-  const { width, height } = useWindowDimensions();
+  const { width } = useWindowDimensions();
   const [viewportWidth, setViewportWidth] = useState(width);
   const bigModuleWidth = viewportWidth - 32;
   const moduleListRef = useRef<FlatList<ModuleKey>>(null);
@@ -106,6 +106,7 @@ export default function TabModuleScroller() {
             <View
               style={[
                 styles.bigModule,
+                styles.bigModuleFill,
                 { width: bigModuleWidth },
                 activeModule === '1' && styles.bigModuleActive,
               ]}
@@ -129,7 +130,7 @@ export default function TabModuleScroller() {
 
               <ScrollView
                 ref={innerScrollRef}
-                style={[styles.innerScrollView, { maxHeight: height * 1 }]}
+                style={styles.innerScrollView}
                 contentContainerStyle={[styles.scrollContent, { paddingBottom: 24 }]}
                 showsVerticalScrollIndicator={false}
                 nestedScrollEnabled
@@ -175,7 +176,7 @@ export default function TabModuleScroller() {
         </View>
       );
     },
-    [activeModule, activeTab, bigModuleWidth, height, sectionBlocks, viewportWidth],
+    [activeModule, activeTab, bigModuleWidth, sectionBlocks, viewportWidth],
   );
 
   return (
@@ -266,8 +267,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modulePage: {
+    flex: 1,
     paddingBottom: 32,
-    alignItems: 'center',
   },
   bigModule: {
     borderRadius: 16,
@@ -276,6 +277,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: 'transparent',
+    alignSelf: 'center',
+  },
+  bigModuleFill: {
+    flex: 1,
+    minHeight: 0,
   },
   bigModuleActive: {
     borderColor: '#2563eb',
@@ -318,7 +324,8 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   innerScrollView: {
-    flexGrow: 0,
+    flex: 1,
+    minHeight: 0,
   },
   scrollContent: {
     paddingTop: 2,
