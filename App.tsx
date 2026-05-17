@@ -5,7 +5,7 @@ export default function App() {
   return (
     <>
       <TabModuleScroller />
-      <StatusBar style="dark" />
+      {/* <StatusBar style="dark" /> */}
     </>
   );
 }
